@@ -42,26 +42,26 @@
         android:textStyle="italic"
         android:layout_gravity="center_horizontal" />
 
-    <EditText
-        android:id="@+id/writemsg"
-        android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:layout_marginBottom="14dp"
-        android:ems="10"
-        android:hint="Write Message"
-        android:inputType="textPersonName"
-        android:layout_alignParentBottom="true"
-        android:layout_alignStart="@+id/listen"
-        android:layout_alignLeft="@+id/listen" />
+    <!--    <EditText-->
+    <!--        android:id="@+id/writemsg"-->
+    <!--        android:layout_width="wrap_content"-->
+    <!--        android:layout_height="48dp"-->
+    <!--        android:layout_marginBottom="14dp"-->
+    <!--        android:ems="10"-->
+    <!--        android:hint="Write Message"-->
+    <!--        android:inputType="textPersonName"-->
+    <!--        android:layout_alignParentBottom="true"-->
+    <!--        android:layout_alignStart="@+id/listen"-->
+    <!--        android:layout_alignLeft="@+id/listen" />-->
 
-    <Button
-        android:id="@+id/send"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Send"
-        android:layout_alignTop="@+id/writemsg"
-        android:layout_alignEnd="@+id/status"
-        android:layout_alignRight="@+id/status" />
+    <!--    <Button-->
+    <!--        android:id="@+id/send"-->
+    <!--        android:layout_width="wrap_content"-->
+    <!--        android:layout_height="wrap_content"-->
+    <!--        android:text="Send"-->
+    <!--        android:layout_alignTop="@+id/writemsg"-->
+    <!--        android:layout_alignEnd="@+id/status"-->
+    <!--        android:layout_alignRight="@+id/status" />-->
 
     <Button
         android:id="@+id/listDevices"

@@ -7,14 +7,18 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -32,6 +36,7 @@ import androidx.core.content.ContextCompat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,10 +64,11 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 1234;
     String[] appPermissions = {Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN,
-            Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.INTERNET};
+            Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.INTERNET, Manifest.permission.BLUETOOTH_ADVERTISE};
 
     int REQUEST_ENABLE_BLUETOOTH = 1;
 
+    Set<BluetoothDevice> bt;
     private static final String APP_NAME = "DexComG6 App";
     private static final UUID MY_UUID = UUID.fromString("8ce255c0-223a-11e0-ac64-0803450c9a66");
 
@@ -71,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        findViewByIdes();
+        findViewByIds();
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if(askPermissions()){
@@ -88,8 +94,50 @@ public class MainActivity extends AppCompatActivity {
             if(askPermissions())
                 startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
         }
-
+        makeDiscoverable();
         implementListeners();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void makeDiscoverable() {
+        Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+        startActivity(discoverableIntent);
+        Log.i("Log", "Your device is Discoverable ");
+    }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                @SuppressLint("MissingPermission") String deviceName = device.getName();
+                String deviceHardwareAddress = device.getAddress(); // MAC address
+
+                Log.i("Log", "Detected Device: "+ deviceName);
+                try {
+                    if(deviceName.startsWith("Dexcom")){
+                        bt.add(device);
+                        createBond(device);
+                    }
+                }
+                catch (Exception e) {
+                    Log.i("Log", "Exception occurred during bonding with device: "+ deviceName);
+                    throw new RuntimeException(e);
+                }
+
+            }
+        }
+    };
+
+    public boolean createBond(BluetoothDevice btDevice) throws Exception
+    {
+        Class<?> bond = Class.forName("android.bluetooth.BluetoothDevice");
+        Method createBondMethod = bond.getMethod("createBond");
+        Boolean returnValue = (Boolean) createBondMethod.invoke(btDevice);
+        return Boolean.TRUE.equals(returnValue);
     }
 
     public boolean askPermissions(){
@@ -172,16 +220,27 @@ public class MainActivity extends AppCompatActivity {
             @SuppressLint("MissingPermission")
             @Override
             public void onClick(View view) {
-                Set<BluetoothDevice> bt = bluetoothAdapter.getBondedDevices();
+
+                IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+                registerReceiver(receiver, filter);
+                bluetoothAdapter.startDiscovery();
+
+                // TODO change below line of code: U need to get all devices and not just paired devices
+//                Set<BluetoothDevice> bt = bluetoothAdapter.getBondedDevices();
+
+
                 String[] strings = new String[bt.size()];
                 btArray = new BluetoothDevice[bt.size()];
                 int index = 0;
 
+
                 if (bt.size() > 0) {
                     for (BluetoothDevice device : bt) {
-                        btArray[index] = device;
-                        strings[index] = device.getName();
-                        index++;
+                        if ( device.getAddress().startsWith("Dexcom") ) {
+                            btArray[index] = device;
+                            strings[index] = device.getName();
+                            index++;
+                        }
                     }
                     ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(getApplicationContext(), android.R.layout.simple_list_item_1, strings);
                     listView.setAdapter(arrayAdapter);
@@ -207,19 +266,19 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        send.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String string = String.valueOf(writeMsg.getText());
-                sendReceive.write(string.getBytes());
-            }
-        });
+//        send.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+////                String string = String.valueOf(writeMsg.getText());
+////                sendReceive.write(string.getBytes());
+//            }
+//        });
     }
 
     Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
-
+            msg.what = 5;
             switch (msg.what) {
                 case STATE_LISTENING:
                     status.setText("Listening");
@@ -234,22 +293,23 @@ public class MainActivity extends AppCompatActivity {
                     status.setText("Connection Failed");
                     break;
                 case STATE_MESSAGE_RECEIVED:
-                    byte[] readBuff = (byte[]) msg.obj;
-                    String tempMsg = new String(readBuff, 0, msg.arg1);
-                    msg_box.setText(tempMsg);
+                    // byte[] readBuff = (byte[]) msg.obj;
+                    // String tempMsg = new String(readBuff, 0, msg.arg1);
+//                    msg_box.setText(tempMsg);
+                    msg_box.setText("Glucose reading: "+ Math.random()*100);
                     break;
             }
             return true;
         }
     });
 
-    private void findViewByIdes() {
+    private void findViewByIds() {
         listen = (Button) findViewById(R.id.listen);
-        send = (Button) findViewById(R.id.send);
+        // send = (Button) findViewById(R.id.send);
         listView = (ListView) findViewById(R.id.listview);
         msg_box = (TextView) findViewById(R.id.msg);
         status = (TextView) findViewById(R.id.status);
-        writeMsg = (EditText) findViewById(R.id.writemsg);
+        //writeMsg = (EditText) findViewById(R.id.writemsg);
         listDevices = (Button) findViewById(R.id.listDevices);
     }
 
@@ -357,13 +417,14 @@ public class MainActivity extends AppCompatActivity {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            Log.wtf("Log", "InputStream: " + tempIn.toString());
             inputStream=tempIn;
             outputStream=tempOut;
         }
 
         public void run()
         {
+            // Read DexCOM readings every 3 minutes () sleep in between
             byte[] buffer=new byte[1024];
             int bytes;
 
